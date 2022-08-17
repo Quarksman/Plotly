@@ -1,0 +1,39 @@
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+import plotly.express as px
+import pandas as pd
+
+scrap122=pd.read_csv('Scrap122.csv')
+scrap222=pd.read_csv('Scrap222.csv')
+scrap322=pd.read_csv('Scrap322.csv')
+scrap422=pd.read_csv('Scrap422.csv')
+scrap522=pd.read_csv('Scrap522.csv')
+scrap622=pd.read_csv('Scrap622.csv')
+data=pd.concat(objs=[scrap122,scrap222,scrap322,scrap422,scrap522,scrap622],ignore_index=False)
+data['REGISDATE'] = pd.to_datetime(data['REGISDATE'],dayfirst=True).dt.strftime('%m-%Y')
+data1 = data.groupby(["REGISDATE", "DEFECT_DETAIL_NAME"])['BARCODE'].agg('count').reset_index(name="count")
+
+app = dash.Dash()
+app.layout=html.Div([
+    html.H1(children='DAILY DEFECT'),
+    html.Div(children='''
+        Dash: Daily Defect By Defect Name
+    '''),
+    dcc.Graph(id='graph'),
+    dcc.Dropdown(id='defect_picker',options=data1['DEFECT_DETAIL_NAME'],
+                 value=data1['DEFECT_DETAIL_NAME'],style={'width':'50%','display':'inline-block',
+                                                          'fontFamily':'helvetica','fontSize':18}),
+])
+
+@app.callback(Output('graph','figure'),
+              [Input('defect_picker','value')])
+
+def update_figure(select_defect):
+    fileter_df=data1[data1['DEFECT_DETAIL_NAME']==select_defect]
+    fig=px.bar(fileter_df,x='REGISDATE',y='count',text='count')
+    return fig
+
+if __name__=='__main__':
+    app.run_server()
