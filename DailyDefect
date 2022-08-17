@@ -1,0 +1,142 @@
+import plotly.graph_objs as go
+import pandas as pd
+import plotly.express as px
+from plotly.subplots import make_subplots
+
+
+
+scrap122=pd.read_csv('Scrap122.csv')
+scrap222=pd.read_csv('Scrap222.csv')
+scrap322=pd.read_csv('Scrap322.csv')
+scrap422=pd.read_csv('Scrap422.csv')
+scrap522=pd.read_csv('Scrap522.csv')
+scrap622=pd.read_csv('Scrap622.csv')
+data=pd.concat(objs=[scrap122,scrap222,scrap322,scrap422,scrap522,scrap622],ignore_index=False) #add data below, beware ignore_index
+
+
+#result = data.dtypes
+#data['REGISDATE']=data['REGISDATE'].apply(lambda x:pd.Timestamp(x).strftime('%d-%m-%Y'))
+data['REGISDATE'] = pd.to_datetime(data['REGISDATE'],dayfirst=True)#.dt.strftime('%d-%m-%Y') #ต่อ dt หลังได้เลยหากต้องการเลือก month year
+
+
+
+#daily defect data barchart
+Daily_defect_data = data.groupby(["REGISDATE"])['BARCODE'].agg('count').reset_index(name="count")
+fig_daily_defect=px.bar(Daily_defect_data, x="REGISDATE", y="count",text="count",title='Daily Scrap (tires)-'
+                                                                          'You will know scrap tire '
+                                                                                       'in every day-Power up by 930')
+fig_daily_defect.show()
+
+
+
+
+#Daily defect data stack bar by color
+Daily_defect_data_by_color = data.groupby(["REGISDATE","DEFECT_DETAIL_NAME"])['BARCODE'].agg('count').reset_index(name="count")
+fig_defect_stack = px.bar(Daily_defect_data_by_color, x="REGISDATE", y="count",
+              color="DEFECT_DETAIL_NAME",text="count",title='Daily scrap type (tires)-you will know daily scrap tire '
+                                                            'categorzie by defect type - Power up by 930 ')
+fig_defect_stack.show()
+
+
+#Pareto chart
+ParetoData = data.groupby(["DEFECT_DETAIL_NAME"])['BARCODE'].agg('count').reset_index(name="count")
+ParetoData=ParetoData.sort_values(by='count',ascending=False)
+mask_minimum=ParetoData['count']>10
+ParetoData=ParetoData[mask_minimum]
+ParetoData['Cum%']=ParetoData['count'].cumsum()/ParetoData['count'].sum()*100.
+trace1=go.Bar(
+    x=ParetoData['DEFECT_DETAIL_NAME'],
+    y=ParetoData['count'],
+    name='Defect count (tires)',
+    marker=dict(color='darkblue'),
+    text=ParetoData['count'],
+    textposition='outside'
+)
+trace2=go.Scatter(
+    x=ParetoData['DEFECT_DETAIL_NAME'],
+    y=ParetoData['Cum%'],
+    mode='lines+markers',
+    marker = dict(size = 10,color = 'black',symbol = 'circle'),
+    line = dict(width = 2),
+    name='Cumulative percentage',
+    yaxis='y2',
+    text=ParetoData['Cum%']
+)
+fig_pareto=make_subplots(specs=[[{'secondary_y':True}]])
+fig_pareto.add_trace(trace1)
+fig_pareto.add_trace(trace2,secondary_y=True)
+fig_pareto.update_layout(title='Scrap Pareto-Please select 70% of defect to '
+                               'improve base on Pareto fundamental -Power up by 930')
+fig_pareto.show()
+
+#Select 10 type Defect from Pareto
+Focus_data=ParetoData.nlargest(n=10, columns=['count'],keep='all')
+sort=Focus_data['DEFECT_DETAIL_NAME']
+mask_focus_defect=data['DEFECT_DETAIL_NAME'].isin(Focus_data['DEFECT_DETAIL_NAME'])
+Mask_data=data[mask_focus_defect]
+Final_focus_data = Mask_data.groupby(["REGISDATE",'DEFECT_DETAIL_NAME'])['BARCODE'].agg('count').reset_index(name="count")
+#mask_defect=Final_focus_data['DEFECT_DETAIL_NAME']=='Bead Toe Crack'
+#Final_focus_data=Final_focus_data[mask_defect ]
+
+fig_10_defect = px.bar(Final_focus_data, x="REGISDATE", y="count", barmode="group",facet_row='DEFECT_DETAIL_NAME',
+              text=Final_focus_data['count'],title='Top 10 scrap defect trend (tires)-You will know top 10 scrap defect trend'
+                                                   'and can focus spike day and decrease variation -Power up by 930')
+fig_10_defect.update_layout()
+fig_10_defect.show()
+
+#Scrap defect treemap (tires)
+defect_data_tires = data.groupby(["DEFECT_DETAIL_NAME",'PRODUCTION_CODE'])['BARCODE'].agg('count').reset_index(name="count")
+fig4 = px.treemap(defect_data_tires, path=[px.Constant("Scrap defect treemap (tires), Pareto's helper,"
+                                                       "You will know 'What size should select improve base on"
+                                                       "scrap defect  -Power by 930"),
+                                           'DEFECT_DETAIL_NAME','PRODUCTION_CODE','count'],
+                 values='count',color='count',color_continuous_scale='Bluered')
+fig4.show()
+
+#hide code assing radial position code to meaning
+#data['RADIAL_POSITION'] = data['RADIAL_POSITION'].replace(to_replace={'A','B','C','D','E','F','G','H'},
+                                                          #value={'Bead_Area','Sidewall_Area','Deco_line_Area',
+                                                                 #'Shoulder_Area','Crown_Area','Inner_Crown_Area',
+                                                          #'Inner_Side_Area','Inner_Bead_Area'})
+#Scrap treemap tire
+data = data.groupby(["DEFECT_DETAIL_NAME",'PRODUCTION_CODE'])['BARCODE'].agg('count').reset_index(name="count")
+Scrap_defect_fig = px.treemap(data, path=[px.Constant('Scrap defect treemap (tires)-'
+                                           'if you need improve product yield base on size,'
+                                           "this treemap can guide you  -Power by 930"),
+                               'PRODUCTION_CODE', 'DEFECT_DETAIL_NAME','count'],
+                 values='count',color='count',color_continuous_scale='Bluered')
+Scrap_defect_fig.show()
+
+#Data import from curing actual data
+Cu122=pd.read_csv('Cu122.csv')
+Cu222=pd.read_csv('Cu222.csv')
+Cu322=pd.read_csv('Cu322.csv')
+Cu422=pd.read_csv('Cu422.csv')
+Cu522=pd.read_csv('Cu522.csv')
+Cu622=pd.read_csv('Cu622.csv')
+
+Cu1222=pd.merge(Cu122,Cu222,on='PRODUCTION_CODE',how='outer')
+Cu12322=pd.merge(Cu1222,Cu322,on='PRODUCTION_CODE',how='outer')
+Cu123422=pd.merge(Cu12322,Cu422,on='PRODUCTION_CODE',how='outer')
+Cu1234522=pd.merge(Cu123422,Cu522,on='PRODUCTION_CODE',how='outer')
+Cu12345622=pd.merge(Cu1234522,Cu622,on='PRODUCTION_CODE',how='outer')
+
+Cu_data=pd.DataFrame(Cu12345622,columns=['PRODUCTION_CODE','CURING_ACTUAL_jan',
+                                       'CURING_ACTUAL_feb','CURING_ACTUAL_mar','CURING_ACTUAL_apr','CURING_ACTUAL_may',
+                                         'CURING_ACTUAL_jun','CURING_ACTUAL_SUM'])
+Cu_data=Cu_data.assign(CURING_ACTUAL_SUM=Cu_data['CURING_ACTUAL_jan']+Cu_data['CURING_ACTUAL_feb']+
+                                         Cu_data['CURING_ACTUAL_mar']+Cu_data['CURING_ACTUAL_apr']+
+                                         Cu_data['CURING_ACTUAL_may']+Cu_data['CURING_ACTUAL_jun'])
+
+
+
+#Scrap defect treemap (%), data-code refer from above code
+data_merge=pd.merge(data,Cu_data,on="PRODUCTION_CODE",how='left')
+data_frame=pd.DataFrame(data_merge,columns=['DEFECT_DETAIL_NAME','PRODUCTION_CODE','count','CURING_ACTUAL_SUM','Defect_Ratio'])
+defect_data_percent=data_frame.assign(Defect_Ratio=(data_frame['count']/data_frame['CURING_ACTUAL_SUM'])*100).round(decimals=3)
+Scrap_treemap_fig = px.treemap(defect_data_percent, path=[px.Constant("Scrap defect treemap (%by curing plan)"
+                                                         "if you need improve product yield base on size, "
+                                                         "this treemap can guide you  -Power by 930"),
+                                             'PRODUCTION_CODE','DEFECT_DETAIL_NAME','Defect_Ratio'],
+                 values='Defect_Ratio',color='Defect_Ratio',color_continuous_scale='Bluered')
+Scrap_treemap_fig.show()
